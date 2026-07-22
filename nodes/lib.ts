@@ -21,6 +21,18 @@ export const MAX_TEXT_BYTES = 1 * 1024 * 1024; // 1 MiB — a generous bound for
 export const MAX_FRONTMATTER_BYTES = 64 * 1024; // 64 KiB — real card frontmatter is a few KB.
 
 const FRONTMATTER_FENCE_RE = /^---\r?\n([\s\S]*?)\r?\n---\r?\n?/;
+const BOM = '﻿';
+
+/**
+ * Strip a leading UTF-8 BOM. Real-world model cards routinely carry one
+ * (Windows editors, PowerShell `Out-File`, some export tooling) — without
+ * this, the BOM defeats FRONTMATTER_FENCE_RE's start-of-string anchor and
+ * an otherwise well-formed frontmatter block is silently reported as
+ * absent instead of parsed.
+ */
+export function stripBom(text: string): string {
+  return text.charCodeAt(0) === 0xfeff || text.startsWith(BOM) ? text.slice(1) : text;
+}
 
 export interface SplitResult {
   hasFrontmatter: boolean;
@@ -31,17 +43,18 @@ export interface SplitResult {
 
 /** Locate the `---`-fenced frontmatter block without parsing any YAML. */
 export function splitFrontmatterRaw(text: string): SplitResult {
-  const m = FRONTMATTER_FENCE_RE.exec(text);
+  const stripped = stripBom(text);
+  const m = FRONTMATTER_FENCE_RE.exec(stripped);
   if (!m) {
-    return { hasFrontmatter: false, frontmatterRaw: '', body: text, frontmatterOversized: false };
+    return { hasFrontmatter: false, frontmatterRaw: '', body: stripped, frontmatterOversized: false };
   }
   const raw = m[1];
   if (Buffer.byteLength(raw, 'utf8') > MAX_FRONTMATTER_BYTES) {
     // Refuse to parse an oversized frontmatter block; treat the whole text
     // (fences included) as the body rather than guessing.
-    return { hasFrontmatter: false, frontmatterRaw: '', body: text, frontmatterOversized: true };
+    return { hasFrontmatter: false, frontmatterRaw: '', body: stripped, frontmatterOversized: true };
   }
-  return { hasFrontmatter: true, frontmatterRaw: raw, body: text.slice(m[0].length), frontmatterOversized: false };
+  return { hasFrontmatter: true, frontmatterRaw: raw, body: stripped.slice(m[0].length), frontmatterOversized: false };
 }
 
 export interface ParsedCard {
@@ -73,7 +86,15 @@ export function parseCard(text: string): ParsedCard {
     // gray-matter re-splits + parses internally (via js-yaml safeLoad); this
     // is deliberately redundant with splitFrontmatterRaw above so the size
     // check runs first, on the raw text, before any parse is attempted.
-    const parsed = matter(text);
+    // engines is restricted to the built-in YAML engine ONLY — gray-matter's
+    // default engine table also includes an eval()-based `javascript` engine
+    // selectable via a `---js` fence-language tag; this call is never
+    // reachable with the strict `---\n...\n---` fence this package requires
+    // (a language tag leaves no room to match), but the engines allowlist
+    // below makes that a guarantee of configuration, not an accident of the
+    // caller's regex, so a future change to the fence-matching logic can't
+    // silently reopen it.
+    const parsed = matter(text, { engines: { yaml: (matter as unknown as { engines: { yaml: unknown } }).engines.yaml as never } });
     const data = parsed.data && typeof parsed.data === 'object' ? (parsed.data as Record<string, unknown>) : {};
     return { hasFrontmatter: true, valid: true, parseError: '', data, body: parsed.content, frontmatterOversized: false };
   } catch (e) {

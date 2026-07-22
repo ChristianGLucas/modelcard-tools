@@ -1,6 +1,6 @@
 import { ModelCard } from '../gen/messages_pb';
 import { splitCard } from './split_card';
-import { ctx, MODEL_CARD, MODEL_CARD_BODY, NO_FRONTMATTER_CARD, MALFORMED_FRONTMATTER_CARD, MAX_TEXT_BYTES, MAX_FRONTMATTER_BYTES } from './testkit';
+import { ctx, MODEL_CARD, MODEL_CARD_BODY, NO_FRONTMATTER_CARD, MALFORMED_FRONTMATTER_CARD, BOM_CARD, MAX_TEXT_BYTES, MAX_FRONTMATTER_BYTES } from './testkit';
 
 describe('SplitCard', () => {
   it('splits frontmatter from body on a well-formed card', () => {
@@ -47,6 +47,16 @@ describe('SplitCard', () => {
     const result = splitCard(ctx, input);
     expect(result.getHasFrontmatter()).toBe(false);
     expect(result.getError()).toBe('');
+  });
+
+  it('REGRESSION: a leading UTF-8 BOM does not hide a well-formed frontmatter block', () => {
+    const input = new ModelCard();
+    input.setText(BOM_CARD);
+    const result = splitCard(ctx, input);
+    expect(result.getHasFrontmatter()).toBe(true);
+    expect(result.getFrontmatterParseError()).toBe(false);
+    expect(result.getFrontmatterRaw()).toContain('license: mit');
+    expect(result.getBody().trim()).toBe('# Body');
   });
 
   it('is deterministic across repeated invocations', () => {

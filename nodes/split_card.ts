@@ -1,6 +1,6 @@
 import { ModelCard, SplitCardResult } from '../gen/messages_pb';
 import { AxiomContext } from '../gen/axiomContext';
-import { isOversized, MAX_TEXT_BYTES, parseCard } from './lib';
+import { isOversized, MAX_TEXT_BYTES, parseCard, splitFrontmatterRaw } from './lib';
 
 /**
  * Split a model/dataset card's raw text into its `---`-fenced YAML
@@ -22,18 +22,15 @@ export function splitCard(ax: AxiomContext, input: ModelCard): SplitCardResult {
     return out;
   }
   const parsed = parseCard(text);
+  // Re-derive the raw (unparsed) frontmatter block via the same
+  // splitFrontmatterRaw helper parseCard itself starts from (rather than a
+  // second regex), so both agree on BOM-handling and fence-matching by
+  // construction instead of by two implementations staying in sync.
+  const rawSplit = splitFrontmatterRaw(text);
   out.setHasFrontmatter(parsed.hasFrontmatter);
-  out.setFrontmatterRaw(parsed.hasFrontmatter ? textFrontmatterRaw(text) : '');
+  out.setFrontmatterRaw(parsed.hasFrontmatter ? rawSplit.frontmatterRaw : '');
   out.setBody(parsed.body);
   out.setFrontmatterParseError(parsed.hasFrontmatter && !parsed.valid);
   out.setParseErrorMessage(parsed.parseError);
   return out;
-}
-
-// Re-extract the raw (unparsed) frontmatter text for the response — kept
-// separate from parseCard's YAML-parsed `data` so a parse failure still
-// returns the raw block the caller can inspect.
-function textFrontmatterRaw(text: string): string {
-  const m = /^---\r?\n([\s\S]*?)\r?\n---\r?\n?/.exec(text);
-  return m ? m[1] : '';
 }

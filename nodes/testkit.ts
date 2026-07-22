@@ -208,5 +208,13 @@ license: mit
 # Body
 `;
 
+/**
+ * FIXTURE — a well-formed card with a leading UTF-8 BOM, exactly as many
+ * real-world exports (Windows editors, PowerShell `Out-File`, etc.)
+ * produce. Regression fixture: a BOM used to defeat the frontmatter-fence
+ * regex and make the frontmatter invisible entirely.
+ */
+export const BOM_CARD = '﻿' + '---\nlicense: mit\ntags:\n  - a\n  - b\n---\n# Body\n';
+
 export const MAX_TEXT_BYTES = 1 * 1024 * 1024;
 export const MAX_FRONTMATTER_BYTES = 64 * 1024;

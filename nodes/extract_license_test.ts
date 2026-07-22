@@ -1,6 +1,6 @@
 import { ModelCard } from '../gen/messages_pb';
 import { extractLicense } from './extract_license';
-import { ctx, MODEL_CARD, DATASET_CARD, NO_FRONTMATTER_CARD } from './testkit';
+import { ctx, MODEL_CARD, DATASET_CARD, NO_FRONTMATTER_CARD, BOM_CARD } from './testkit';
 
 describe('ExtractLicense', () => {
   it('extracts license from a model card', () => {
@@ -36,5 +36,13 @@ describe('ExtractLicense', () => {
     const result = extractLicense(ctx, input);
     expect(result.getPresent()).toBe(false);
     expect(result.getError()).toBe('');
+  });
+
+  it('REGRESSION: a leading UTF-8 BOM does not hide the license (used to report present=false)', () => {
+    const input = new ModelCard();
+    input.setText(BOM_CARD);
+    const result = extractLicense(ctx, input);
+    expect(result.getPresent()).toBe(true);
+    expect(result.getLicense()).toBe('mit');
   });
 });
