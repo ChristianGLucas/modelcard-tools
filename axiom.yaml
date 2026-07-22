@@ -1,0 +1,224 @@
+name: christiangeorgelucas/modelcard-tools
+version: 0.1.0
+language: typescript
+description: >-
+  Deterministic, HUGGING-FACE-CARD-SEMANTIC parsing and inspection of ML
+  model cards and dataset cards — the `---`-fenced-YAML-frontmatter +
+  Markdown-body README.md documents that describe models/datasets on the
+  Hugging Face Hub and similar registries. Distinct from generic
+  frontmatter/markdown tools: this package understands the HF card schema
+  (license, pipeline_tag, base_model, library_name, model-index evaluation
+  results, dataset_info, etc.) and pulls out exactly what an ML agent needs
+  for model discovery, license/eval auditing, and dataset provenance. Split
+  a card into frontmatter + body, parse the frontmatter into a normalized
+  structure, detect MODEL vs DATASET card, extract license/tags/language(s)/
+  pipeline_tag/base_model(s)/library_name/datasets, extract the model-index
+  structured evaluation results (name -> results[] -> task + dataset +
+  metrics) both as a nested structure and as a flat metric table, extract
+  dataset-card fields (task_categories/size_categories/dataset_info),
+  extract Markdown sections by heading, fetch one named section, audit
+  which of the standard HF model-card sections are present vs missing, and
+  extract carbon-footprint (co2_eq_emissions) and widget inference-example
+  metadata. Wraps gray-matter (MIT), which delegates YAML parsing to
+  js-yaml's SAFE loader (no code-executing tags); Markdown section splitting
+  is this package's own regex-based heading scan (mature JS AST markdown
+  parsers are ESM-only and cannot be required from this CommonJS build).
+  Card text is always caller-supplied — no Hugging Face Hub API calls, no
+  network, no wall-clock, no randomness. Input is bounded to 1 MiB overall
+  and 64 KiB for the frontmatter block specifically; oversized or malformed
+  input returns a structured result (body-only / parse-error fields set),
+  never a crash.
+author: Christian George Lucas
+license: MIT
+tags:
+    - huggingface
+    - model-card
+    - dataset-card
+    - yaml-frontmatter
+    - markdown
+    - ml-metadata
+    - license-audit
+    - model-index
+    - evaluation-metrics
+    - gray-matter
+nodes:
+    - name: SplitCard
+      input: ModelCard
+      output: SplitCardResult
+      description: >-
+        Split a model/dataset card's raw text into its `---`-fenced YAML
+        frontmatter and its Markdown body. A missing frontmatter block is
+        not an error — has_frontmatter is simply false and body is the
+        whole input. A frontmatter block that fails to parse as YAML, or
+        exceeds the 64 KiB frontmatter size bound, sets
+        frontmatter_parse_error with a message instead of aborting. Only
+        oversized whole-input text (over 1 MiB) sets the top-level error.
+    - name: ParseFrontmatter
+      input: ModelCard
+      output: ParseFrontmatterResult
+      description: >-
+        Parse a card's YAML frontmatter into a normalized structure: one
+        FrontmatterEntry per top-level key, each carrying its value
+        JSON-encoded so any YAML shape (scalar, list, nested mapping)
+        round-trips without forcing every card into one rigid schema. Use
+        the more specific ExtractLicense/ExtractTags/etc. nodes when you
+        only need one well-known field.
+    - name: DetectCardType
+      input: ModelCard
+      output: DetectCardTypeResult
+      description: >-
+        Classify a card as a MODEL card or a DATASET card from its
+        frontmatter keys — model signals are pipeline_tag/model-index/
+        base_model/library_name; dataset signals are task_categories/
+        dataset_info/size_categories/configs/source_datasets. card_type is
+        "unknown" when no frontmatter is present, it fails to parse, or
+        neither signal set is present. signals lists exactly which keys
+        drove the classification.
+    - name: ExtractLicense
+      input: ModelCard
+      output: ExtractLicenseResult
+      description: >-
+        Extract a card's license metadata: the `license` identifier (e.g.
+        "mit", "apache-2.0", "other"), `license_name` (a free-text name,
+        used when license is "other"), and `license_link`, when present.
+        present is true only when the `license` key itself is set.
+    - name: ExtractTags
+      input: ModelCard
+      output: ExtractTagsResult
+      description: >-
+        Extract a card's `tags` list from its frontmatter. Empty (not an
+        error) when the card has no frontmatter, the frontmatter fails to
+        parse, or `tags` is absent.
+    - name: ExtractLanguages
+      input: ModelCard
+      output: ExtractLanguagesResult
+      description: >-
+        Extract a card's `language` field, normalized to a flat list
+        regardless of whether the frontmatter wrote it as a single scalar
+        (`language: en`) or a YAML sequence (`language: [en, fr]`).
+    - name: ExtractPipelineTag
+      input: ModelCard
+      output: ExtractPipelineTagResult
+      description: >-
+        Extract a model card's `pipeline_tag` — the task type (e.g.
+        "text-generation", "image-classification") the model is tagged for
+        on the Hugging Face Hub. present is false when the key is absent.
+    - name: ExtractBaseModel
+      input: ModelCard
+      output: ExtractBaseModelResult
+      description: >-
+        Extract a model card's `base_model` field(s) — the upstream
+        model(s) this one was fine-tuned, quantized, merged, or adapted
+        from — normalized to a flat list regardless of whether the
+        frontmatter wrote a single scalar or a YAML sequence.
+    - name: ExtractLibraryName
+      input: ModelCard
+      output: ExtractLibraryNameResult
+      description: >-
+        Extract a model card's `library_name` — the inference/training
+        library it declares (e.g. "transformers", "diffusers", "timm").
+        present is false when the key is absent.
+    - name: ExtractDatasets
+      input: ModelCard
+      output: ExtractDatasetsResult
+      description: >-
+        Extract a model card's `datasets` field — the dataset(s) it
+        declares it was trained/fine-tuned/evaluated on — normalized to a
+        flat list regardless of whether the frontmatter wrote a single
+        scalar or a YAML sequence.
+    - name: ExtractModelIndex
+      input: ModelCard
+      output: ModelIndexResult
+      description: >-
+        Extract a model card's `model-index` structured evaluation results
+        — the high-value node for eval auditing: each entry (name ->
+        results[] -> dataset + task + metrics[name,type,value]), preserved
+        as the nested structure the frontmatter declares it in. present is
+        false when the card has no `model-index` key (not an error — most
+        cards omit it). Use ListEvaluationMetrics instead when you want a
+        flat metric table rather than this nested shape.
+    - name: ListEvaluationMetrics
+      input: ModelCard
+      output: ListEvaluationMetricsResult
+      description: >-
+        List every evaluation metric reported in a model card's
+        `model-index` as a flat table — one row per (model-index name,
+        task, dataset, metric), with metric name/type/value plus a
+        numeric-parsed value when the value is numeric. Same data as
+        ExtractModelIndex, flattened for consumers that want a table rather
+        than the nested structure. present is false when the card has no
+        `model-index` key.
+    - name: ExtractDatasetCardFields
+      input: ModelCard
+      output: ExtractDatasetCardFieldsResult
+      description: >-
+        Extract the dataset-card-specific frontmatter fields:
+        `task_categories`, `size_categories`, `language`, and
+        `dataset_info` (splits/features). dataset_info's real-world shape
+        varies (a single config's object, or a list of per-config objects)
+        too much to force into a fixed message, so it is returned as JSON
+        via dataset_info_json; has_dataset_info tells you whether the key
+        was present at all.
+    - name: ExtractSections
+      input: ModelCard
+      output: ExtractSectionsResult
+      description: >-
+        Extract the Markdown body's sections as (level, heading, content)
+        triples — content runs up to (but not including) the next ATX
+        heading (`#` through `######`) of any level, so nested subsections
+        are their own entries too. Frontmatter is stripped first if
+        present. preamble carries any text before the first heading
+        (title/badges block). A body with no headings comes back with an
+        empty sections list and the whole body as preamble.
+    - name: GetSection
+      input: GetSectionRequest
+      output: GetSectionResult
+      description: >-
+        Look up one named Markdown section's content by heading, e.g.
+        "Intended uses & limitations" or "Training data" — the node an
+        agent uses to pull exactly one part of a model card. Matching is
+        case-insensitive and whitespace/markup-normalized; an exact
+        normalized match wins, otherwise the first heading that contains
+        the requested heading as a substring. found is false when no
+        section matches.
+    - name: AuditCompleteness
+      input: ModelCard
+      output: AuditCompletenessResult
+      description: >-
+        Audit a card's Markdown body against the standard Hugging Face
+        model-card template sections (Model Details, Intended Uses &
+        Limitations, How to Get Started, Training Data, Training
+        Procedure, Evaluation, Bias/Risks/Limitations, Environmental
+        Impact, Citation) — a completeness/quality check for card
+        authoring or review. A standard section counts as present when any
+        of its heading aliases appears as a substring of a body heading
+        (case-insensitive, markup-normalized).
+    - name: ExtractCarbonFootprint
+      input: ModelCard
+      output: ExtractCarbonFootprintResult
+      description: >-
+        Extract a model card's `co2_eq_emissions` carbon-footprint
+        metadata. Handles both shapes seen in the wild: a bare number
+        (grams CO2 eq.) and the structured object (emissions/source/
+        training_type/geographical_location/hardware_used). raw_json
+        preserves the original value for fidelity beyond the normalized
+        fields. present is false when the key is absent.
+    - name: ExtractWidgetExamples
+      input: ModelCard
+      output: ExtractWidgetExamplesResult
+      description: >-
+        Extract a model card's `widget` inference examples. Each entry's
+        plain `text` and `example_title` fields (when present) are
+        surfaced directly; raw_json preserves the full entry for fidelity
+        beyond those two fields (widget entries can carry structured
+        multi-field inputs, `src`, expected `output`, etc.). present is
+        false when the key is absent or not a list.
+    - name: SummarizeCard
+      input: ModelCard
+      output: SummarizeCardResult
+      description: >-
+        Summarize a card's metadata at a glance: card type, frontmatter
+        key count, tag/language/section counts, body word count, and
+        boolean flags for license/eval-results/widget-examples/carbon-
+        footprint presence — a cheap single-call overview before pulling
+        any individual field.

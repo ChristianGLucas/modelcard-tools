@@ -1,0 +1,284 @@
+// This file defines the data contracts (messages) for your Axiom package.
+// Every node's --input and --output refers to a message defined here.
+//
+// Run `axiom create message <Name>` to scaffold a new message below.
+// Run `axiom generate` to compile these definitions into language bindings in gen/.
+//
+// DOCUMENTATION
+//   Comments written directly above a message or field declaration are extracted
+//   automatically at publish time and shown in the Axiom registry as documentation.
+//   Write your descriptions there — no separate doc files needed.
+//
+//   Leading comment  (no blank line before the declaration) → registry description ✓
+//   Detached comment (blank line before the declaration)    → ignored by registry  ✗
+//
+// This file is yours to edit. Axiom only appends new message blocks — it never
+// overwrites or removes content you have written.
+
+syntax = "proto3";
+
+package christiangeorgelucas.modelcard_tools;
+
+// A model card or dataset card as caller-supplied text — the Hugging
+// Face-style README.md: optional `---`-fenced YAML frontmatter followed by a
+// Markdown body. Text only; never a URL or Hub repo id (this package never
+// touches the network). Bounded to 1 MiB total.
+message ModelCard {
+  string text = 1;
+}
+
+// One generic frontmatter key -> value pair, value carried as a JSON-encoded
+// string so any YAML shape (scalar, array, nested object) round-trips
+// losslessly without forcing every card's frontmatter into one rigid schema.
+message FrontmatterEntry {
+  string key = 1;
+  // JSON encoding of the parsed YAML value for this key.
+  string value_json = 2;
+}
+
+message SplitCardResult {
+  bool has_frontmatter = 1;
+  // Raw YAML text found between the `---` fences (empty if has_frontmatter is false).
+  string frontmatter_raw = 2;
+  // The Markdown body — everything after the closing `---` fence, or the
+  // whole input when there is no frontmatter.
+  string body = 3;
+  // True when a frontmatter block was found but failed to parse as YAML.
+  bool frontmatter_parse_error = 4;
+  string parse_error_message = 5;
+  // Set only for a hard, whole-input failure (oversized input). Never set
+  // for a missing or malformed frontmatter block, which is reported above.
+  string error = 6;
+}
+
+message ParseFrontmatterResult {
+  bool has_frontmatter = 1;
+  // True when the frontmatter block parsed as valid YAML (a mapping).
+  bool valid = 2;
+  string parse_error = 3;
+  // Every top-level frontmatter key, in source order.
+  repeated FrontmatterEntry entries = 4;
+  string error = 5;
+}
+
+message DetectCardTypeResult {
+  // "model" | "dataset" | "unknown".
+  string card_type = 1;
+  // Frontmatter keys that drove the classification, e.g.
+  // ["pipeline_tag", "model-index"] or ["task_categories", "dataset_info"].
+  repeated string signals = 2;
+  string error = 3;
+}
+
+message ExtractLicenseResult {
+  bool present = 1;
+  // The `license` frontmatter value (an SPDX-ish id such as "mit",
+  // "apache-2.0", or "other").
+  string license = 2;
+  // The `license_name` value — set when license == "other" and the card
+  // names a non-standard license.
+  string license_name = 3;
+  // The `license_link` value, when present.
+  string license_link = 4;
+  string error = 5;
+}
+
+message ExtractTagsResult {
+  repeated string tags = 1;
+  string error = 2;
+}
+
+message ExtractLanguagesResult {
+  // Normalized to a flat list regardless of whether `language` was a single
+  // scalar or a YAML sequence in the source frontmatter.
+  repeated string languages = 1;
+  string error = 2;
+}
+
+message ExtractPipelineTagResult {
+  bool present = 1;
+  string pipeline_tag = 2;
+  string error = 3;
+}
+
+message ExtractBaseModelResult {
+  // Normalized to a flat list regardless of whether `base_model` was a
+  // single scalar or a YAML sequence.
+  repeated string base_models = 1;
+  string error = 2;
+}
+
+message ExtractLibraryNameResult {
+  bool present = 1;
+  string library_name = 2;
+  string error = 3;
+}
+
+message ExtractDatasetsResult {
+  repeated string datasets = 1;
+  string error = 2;
+}
+
+// One `metrics[]` entry within a model-index eval result.
+message EvalMetric {
+  string name = 1;
+  string type = 2;
+  // The metric's value, exactly as written in the frontmatter (numbers are
+  // formatted without trailing-zero loss; non-numeric values pass through
+  // as-is).
+  string value = 3;
+  bool value_is_numeric = 4;
+  double value_number = 5;
+}
+
+// One `results[]` entry: a (task, dataset) pair plus the metrics measured on it.
+message EvalDatasetResult {
+  string task_type = 1;
+  string task_name = 2;
+  string dataset_type = 3;
+  string dataset_name = 4;
+  string dataset_config = 5;
+  string dataset_split = 6;
+  string dataset_revision = 7;
+  repeated EvalMetric metrics = 8;
+}
+
+// One top-level `model-index` entry (HF allows more than one, keyed by name).
+message ModelIndexEntry {
+  string name = 1;
+  repeated EvalDatasetResult results = 2;
+}
+
+message ModelIndexResult {
+  bool present = 1;
+  repeated ModelIndexEntry entries = 2;
+  string error = 3;
+}
+
+// One flattened row of the model-index results, for building an eval table
+// without walking the nested structure.
+message EvaluationMetricRow {
+  string model_index_name = 1;
+  string task_name = 2;
+  string dataset_name = 3;
+  string metric_name = 4;
+  string metric_type = 5;
+  string value = 6;
+  bool value_is_numeric = 7;
+  double value_number = 8;
+}
+
+message ListEvaluationMetricsResult {
+  bool present = 1;
+  repeated EvaluationMetricRow metrics = 2;
+  string error = 3;
+}
+
+message ExtractDatasetCardFieldsResult {
+  repeated string task_categories = 1;
+  repeated string size_categories = 2;
+  repeated string languages = 3;
+  bool has_dataset_info = 4;
+  // Full JSON serialization of the `dataset_info` value (splits/features)
+  // — its real-world shape varies too much (single config vs. a list of
+  // per-config objects) to force into a fixed message without losing data.
+  string dataset_info_json = 5;
+  string error = 6;
+}
+
+// One Markdown section: a heading and the text that follows it, up to (but
+// not including) the next heading of any level.
+message MarkdownSection {
+  int32 level = 1;
+  string heading = 2;
+  string content = 3;
+}
+
+message ExtractSectionsResult {
+  repeated MarkdownSection sections = 1;
+  // Any body text before the first heading (e.g. a title/badges block).
+  string preamble = 2;
+  string error = 3;
+}
+
+message GetSectionRequest {
+  string text = 1;
+  // Heading to look up. Matched case-insensitively against each section's
+  // heading text, trimmed of surrounding whitespace; an exact normalized
+  // match wins, else the first heading that contains it as a substring.
+  string heading = 2;
+}
+
+message GetSectionResult {
+  bool found = 1;
+  MarkdownSection section = 2;
+  string error = 3;
+}
+
+// Whether one recommended model-card section was found in the document.
+message SectionPresence {
+  // Canonical section name from the standard Hugging Face model-card template.
+  string standard_section = 1;
+  bool present = 2;
+  // The actual heading text that matched, when present.
+  string matched_heading = 3;
+}
+
+message AuditCompletenessResult {
+  repeated SectionPresence sections = 1;
+  int32 present_count = 2;
+  int32 total_count = 3;
+  double completeness_ratio = 4;
+  string error = 5;
+}
+
+message CarbonFootprint {
+  double emissions_grams = 1;
+  bool emissions_numeric = 2;
+  string source = 3;
+  string training_type = 4;
+  string geographical_location = 5;
+  string hardware_used = 6;
+  // Full JSON of the raw `co2_eq_emissions` frontmatter value, for fidelity
+  // beyond the normalized fields above.
+  string raw_json = 7;
+}
+
+message ExtractCarbonFootprintResult {
+  bool present = 1;
+  CarbonFootprint footprint = 2;
+  string error = 3;
+}
+
+// One `widget[]` inference example.
+message WidgetExample {
+  // The example input text, when the entry has a plain `text` field.
+  string text = 1;
+  string example_title = 2;
+  // Full JSON of the raw widget entry, for fidelity beyond `text`/`example_title`
+  // (widget entries can carry structured multi-field inputs, src, output, etc.).
+  string raw_json = 3;
+}
+
+message ExtractWidgetExamplesResult {
+  bool present = 1;
+  repeated WidgetExample examples = 2;
+  string error = 3;
+}
+
+message SummarizeCardResult {
+  bool has_frontmatter = 1;
+  bool frontmatter_valid = 2;
+  // "model" | "dataset" | "unknown".
+  string card_type = 3;
+  int32 frontmatter_key_count = 4;
+  int32 tag_count = 5;
+  int32 language_count = 6;
+  int32 section_count = 7;
+  int32 body_word_count = 8;
+  bool has_license = 9;
+  bool has_eval_results = 10;
+  bool has_widget_examples = 11;
+  bool has_carbon_footprint = 12;
+  string error = 13;
+}
