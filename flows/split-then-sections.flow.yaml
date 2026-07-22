@@ -1,0 +1,18 @@
+name: split-then-sections
+description: SplitCard extracts a card's Markdown body from its frontmatter; that body composes directly as ExtractSections' input (ModelCard.text), proving SplitCard.body feeds ExtractSections without contorted adaptation — a real caller pattern (strip frontmatter once, then run several body-only analyses).
+nodes:
+    - alias: split
+      package: christiangeorgelucas/modelcard-tools@0.1.0
+      node: SplitCard
+      col: 0
+      row: 0
+    - alias: sections
+      package: christiangeorgelucas/modelcard-tools@0.1.0
+      node: ExtractSections
+      col: 1
+      row: 0
+edges:
+    - from: split
+      to: sections
+      adapter:
+        body: text
