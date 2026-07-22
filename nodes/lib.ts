@@ -20,6 +20,12 @@ import matter from 'gray-matter';
 export const MAX_TEXT_BYTES = 1 * 1024 * 1024; // 1 MiB — a generous bound for a README.
 export const MAX_FRONTMATTER_BYTES = 64 * 1024; // 64 KiB — real card frontmatter is a few KB.
 
+// Exported (not inlined at the call site) so a test can verify directly that
+// this options object actually disables gray-matter's eval()-based
+// `javascript` fence-language engine — see the comment on the matter() call
+// in parseCard for why passing engines does NOT implicitly remove it.
+export const SAFE_MATTER_OPTIONS = { engines: { javascript: undefined as never } };
+
 const FRONTMATTER_FENCE_RE = /^---\r?\n([\s\S]*?)\r?\n---\r?\n?/;
 const BOM = '﻿';
 
@@ -86,15 +92,20 @@ export function parseCard(text: string): ParsedCard {
     // gray-matter re-splits + parses internally (via js-yaml safeLoad); this
     // is deliberately redundant with splitFrontmatterRaw above so the size
     // check runs first, on the raw text, before any parse is attempted.
-    // engines is restricted to the built-in YAML engine ONLY — gray-matter's
-    // default engine table also includes an eval()-based `javascript` engine
-    // selectable via a `---js` fence-language tag; this call is never
-    // reachable with the strict `---\n...\n---` fence this package requires
-    // (a language tag leaves no room to match), but the engines allowlist
-    // below makes that a guarantee of configuration, not an accident of the
-    // caller's regex, so a future change to the fence-matching logic can't
-    // silently reopen it.
-    const parsed = matter(text, { engines: { yaml: (matter as unknown as { engines: { yaml: unknown } }).engines.yaml as never } });
+    // The `javascript` engine (an eval()-based fence-language handler,
+    // selectable via a `---js` fence-language tag) is explicitly disabled.
+    // gray-matter merges caller-supplied `engines` OVER its defaults
+    // (Object.assign({}, defaults, opts.engines)), so merely passing
+    // `{ engines: { yaml } }` does NOT remove `javascript` — every other
+    // default key survives untouched. Setting it to undefined here is what
+    // actually makes engine.js's `typeof engine === 'undefined'` check
+    // throw "engine \"js\" is not registered" instead of eval()-ing.
+    // This call is never reachable today with the strict `---\n...\n---`
+    // fence this package requires (a language tag leaves no room to match),
+    // but this makes that a guarantee of configuration, not an accident of
+    // the caller's regex, so a future change to the fence-matching logic
+    // can't silently reopen it.
+    const parsed = matter(text, SAFE_MATTER_OPTIONS);
     const data = parsed.data && typeof parsed.data === 'object' ? (parsed.data as Record<string, unknown>) : {};
     return { hasFrontmatter: true, valid: true, parseError: '', data, body: parsed.content, frontmatterOversized: false };
   } catch (e) {
