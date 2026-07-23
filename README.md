@@ -1,7 +1,7 @@
 # modelcard-tools
 
 Deterministic, **Hugging Face-card-semantic** parsing and inspection of ML
-model cards and dataset cards — built for the [Axiom](https://axiom.co)
+model cards and dataset cards — built for the [Axiom](https://axiomide.com)
 marketplace, handle `christiangeorgelucas`.
 
 A model/dataset card is the Hugging Face-style `README.md`: `---`-fenced YAML
