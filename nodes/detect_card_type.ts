@@ -1,6 +1,6 @@
 import { ModelCard, DetectCardTypeResult } from '../gen/messages_pb';
 import { AxiomContext } from '../gen/axiomContext';
-import { detectCardType as classify, isOversized, MAX_TEXT_BYTES, parseCard } from './lib';
+import { detectCardType as classify, parseCard } from './lib';
 
 /**
  * Classify a card as a MODEL card or a DATASET card from its frontmatter
@@ -15,10 +15,6 @@ import { detectCardType as classify, isOversized, MAX_TEXT_BYTES, parseCard } fr
 export function detectCardType(ax: AxiomContext, input: ModelCard): DetectCardTypeResult {
   const out = new DetectCardTypeResult();
   const text = input.getText();
-  if (isOversized(text)) {
-    out.setError(`input exceeds ${MAX_TEXT_BYTES} bytes`);
-    return out;
-  }
   const parsed = parseCard(text);
   if (!parsed.hasFrontmatter || !parsed.valid) {
     out.setCardType('unknown');

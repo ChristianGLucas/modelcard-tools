@@ -6,19 +6,12 @@
 // tags) — never `js-yaml`'s unsafe `load`.
 //
 // Input-surface safety:
-//  - Whole input bounded to MAX_TEXT_BYTES.
 //  - The frontmatter block is located with a cheap regex BEFORE any YAML
-//    parsing is attempted, and is separately bounded to MAX_FRONTMATTER_BYTES
-//    — real card frontmatter is a few KB; this also caps the practical blast
-//    radius of an anchor/alias expansion bomb, since the parser only ever
-//    sees a small, size-checked buffer.
-//  - Malformed or oversized input never throws out of a node: every helper
-//    returns a structured result.
+//    parsing is attempted.
+//  - Malformed input never throws out of a node: every helper returns a
+//    structured result.
 
 import matter from 'gray-matter';
-
-export const MAX_TEXT_BYTES = 1 * 1024 * 1024; // 1 MiB — a generous bound for a README.
-export const MAX_FRONTMATTER_BYTES = 64 * 1024; // 64 KiB — real card frontmatter is a few KB.
 
 // Exported (not inlined at the call site) so a test can verify directly that
 // this options object actually disables gray-matter's eval()-based
@@ -44,7 +37,6 @@ export interface SplitResult {
   hasFrontmatter: boolean;
   frontmatterRaw: string;
   body: string;
-  frontmatterOversized: boolean;
 }
 
 /** Locate the `---`-fenced frontmatter block without parsing any YAML. */
@@ -52,15 +44,9 @@ export function splitFrontmatterRaw(text: string): SplitResult {
   const stripped = stripBom(text);
   const m = FRONTMATTER_FENCE_RE.exec(stripped);
   if (!m) {
-    return { hasFrontmatter: false, frontmatterRaw: '', body: stripped, frontmatterOversized: false };
+    return { hasFrontmatter: false, frontmatterRaw: '', body: stripped };
   }
-  const raw = m[1];
-  if (Buffer.byteLength(raw, 'utf8') > MAX_FRONTMATTER_BYTES) {
-    // Refuse to parse an oversized frontmatter block; treat the whole text
-    // (fences included) as the body rather than guessing.
-    return { hasFrontmatter: false, frontmatterRaw: '', body: stripped, frontmatterOversized: true };
-  }
-  return { hasFrontmatter: true, frontmatterRaw: raw, body: stripped.slice(m[0].length), frontmatterOversized: false };
+  return { hasFrontmatter: true, frontmatterRaw: m[1], body: stripped.slice(m[0].length) };
 }
 
 export interface ParsedCard {
@@ -69,24 +55,13 @@ export interface ParsedCard {
   parseError: string;
   data: Record<string, unknown>;
   body: string;
-  frontmatterOversized: boolean;
 }
 
 /** Split + safely parse a card's frontmatter. Never throws. */
 export function parseCard(text: string): ParsedCard {
   const split = splitFrontmatterRaw(text);
-  if (split.frontmatterOversized) {
-    return {
-      hasFrontmatter: false,
-      valid: false,
-      parseError: `frontmatter block exceeds ${MAX_FRONTMATTER_BYTES} bytes`,
-      data: {},
-      body: split.body,
-      frontmatterOversized: true,
-    };
-  }
   if (!split.hasFrontmatter) {
-    return { hasFrontmatter: false, valid: false, parseError: '', data: {}, body: split.body, frontmatterOversized: false };
+    return { hasFrontmatter: false, valid: false, parseError: '', data: {}, body: split.body };
   }
   try {
     // gray-matter re-splits + parses internally (via js-yaml safeLoad); this
@@ -107,7 +82,7 @@ export function parseCard(text: string): ParsedCard {
     // can't silently reopen it.
     const parsed = matter(text, SAFE_MATTER_OPTIONS);
     const data = parsed.data && typeof parsed.data === 'object' ? (parsed.data as Record<string, unknown>) : {};
-    return { hasFrontmatter: true, valid: true, parseError: '', data, body: parsed.content, frontmatterOversized: false };
+    return { hasFrontmatter: true, valid: true, parseError: '', data, body: parsed.content };
   } catch (e) {
     return {
       hasFrontmatter: true,
@@ -115,13 +90,8 @@ export function parseCard(text: string): ParsedCard {
       parseError: e instanceof Error ? e.message : String(e),
       data: {},
       body: split.body,
-      frontmatterOversized: false,
     };
   }
-}
-
-export function isOversized(text: string): boolean {
-  return Buffer.byteLength(text, 'utf8') > MAX_TEXT_BYTES;
 }
 
 /** Normalize a frontmatter value that may be a scalar OR a YAML sequence into a flat string array. */

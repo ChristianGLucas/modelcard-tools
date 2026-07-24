@@ -1,6 +1,6 @@
 import { ModelCard, ExtractDatasetCardFieldsResult } from '../gen/messages_pb';
 import { AxiomContext } from '../gen/axiomContext';
-import { isOversized, MAX_TEXT_BYTES, parseCard, safeJsonStringify, toStringArray } from './lib';
+import { parseCard, safeJsonStringify, toStringArray } from './lib';
 
 /**
  * Extract the dataset-card-specific frontmatter fields: `task_categories`,
@@ -15,10 +15,6 @@ import { isOversized, MAX_TEXT_BYTES, parseCard, safeJsonStringify, toStringArra
 export function extractDatasetCardFields(ax: AxiomContext, input: ModelCard): ExtractDatasetCardFieldsResult {
   const out = new ExtractDatasetCardFieldsResult();
   const text = input.getText();
-  if (isOversized(text)) {
-    out.setError(`input exceeds ${MAX_TEXT_BYTES} bytes`);
-    return out;
-  }
   const parsed = parseCard(text);
   if (!parsed.hasFrontmatter || !parsed.valid) return out;
   out.setTaskCategoriesList(toStringArray(parsed.data.task_categories));

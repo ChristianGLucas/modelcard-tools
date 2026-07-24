@@ -1,6 +1,6 @@
 import { ModelCard, ExtractSectionsResult, MarkdownSection } from '../gen/messages_pb';
 import { AxiomContext } from '../gen/axiomContext';
-import { isOversized, MAX_TEXT_BYTES, parseCard, splitSections } from './lib';
+import { parseCard, splitSections } from './lib';
 
 /**
  * Extract the Markdown body's sections as (level, heading, content) triples
@@ -15,10 +15,6 @@ import { isOversized, MAX_TEXT_BYTES, parseCard, splitSections } from './lib';
 export function extractSections(ax: AxiomContext, input: ModelCard): ExtractSectionsResult {
   const out = new ExtractSectionsResult();
   const text = input.getText();
-  if (isOversized(text)) {
-    out.setError(`input exceeds ${MAX_TEXT_BYTES} bytes`);
-    return out;
-  }
   const parsed = parseCard(text);
   const { preamble, sections } = splitSections(parsed.body);
   out.setPreamble(preamble);

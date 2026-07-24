@@ -1,6 +1,6 @@
 import { ModelCard, ExtractLanguagesResult } from '../gen/messages_pb';
 import { AxiomContext } from '../gen/axiomContext';
-import { isOversized, MAX_TEXT_BYTES, parseCard, toStringArray } from './lib';
+import { parseCard, toStringArray } from './lib';
 
 /**
  * Extract a card's `language` field, normalized to a flat list regardless
@@ -12,10 +12,6 @@ import { isOversized, MAX_TEXT_BYTES, parseCard, toStringArray } from './lib';
 export function extractLanguages(ax: AxiomContext, input: ModelCard): ExtractLanguagesResult {
   const out = new ExtractLanguagesResult();
   const text = input.getText();
-  if (isOversized(text)) {
-    out.setError(`input exceeds ${MAX_TEXT_BYTES} bytes`);
-    return out;
-  }
   const parsed = parseCard(text);
   if (!parsed.hasFrontmatter || !parsed.valid) return out;
   out.setLanguagesList(toStringArray(parsed.data.language));

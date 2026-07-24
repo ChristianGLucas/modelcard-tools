@@ -1,6 +1,6 @@
 import { ModelCard, ExtractLicenseResult } from '../gen/messages_pb';
 import { AxiomContext } from '../gen/axiomContext';
-import { isOversized, isPresent, MAX_TEXT_BYTES, parseCard, toStringOrEmpty } from './lib';
+import { isPresent, parseCard, toStringOrEmpty } from './lib';
 
 /**
  * Extract a card's license metadata: the `license` identifier (e.g. "mit",
@@ -13,10 +13,6 @@ import { isOversized, isPresent, MAX_TEXT_BYTES, parseCard, toStringOrEmpty } fr
 export function extractLicense(ax: AxiomContext, input: ModelCard): ExtractLicenseResult {
   const out = new ExtractLicenseResult();
   const text = input.getText();
-  if (isOversized(text)) {
-    out.setError(`input exceeds ${MAX_TEXT_BYTES} bytes`);
-    return out;
-  }
   const parsed = parseCard(text);
   if (!parsed.hasFrontmatter || !parsed.valid) return out;
   const present = isPresent(parsed.data.license);

@@ -1,6 +1,6 @@
 import { ModelCard, AuditCompletenessResult, SectionPresence } from '../gen/messages_pb';
 import { AxiomContext } from '../gen/axiomContext';
-import { isOversized, MAX_TEXT_BYTES, normalizeHeading, parseCard, splitSections, STANDARD_SECTIONS } from './lib';
+import { normalizeHeading, parseCard, splitSections, STANDARD_SECTIONS } from './lib';
 
 /**
  * Audit a card's Markdown body against the standard Hugging Face model-card
@@ -16,10 +16,6 @@ import { isOversized, MAX_TEXT_BYTES, normalizeHeading, parseCard, splitSections
 export function auditCompleteness(ax: AxiomContext, input: ModelCard): AuditCompletenessResult {
   const out = new AuditCompletenessResult();
   const text = input.getText();
-  if (isOversized(text)) {
-    out.setError(`input exceeds ${MAX_TEXT_BYTES} bytes`);
-    return out;
-  }
   const parsed = parseCard(text);
   const { sections } = splitSections(parsed.body);
   const normalizedHeadings = sections.map((s) => ({ raw: s.heading, norm: normalizeHeading(s.heading) }));

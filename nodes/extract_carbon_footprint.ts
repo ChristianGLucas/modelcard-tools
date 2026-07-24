@@ -1,6 +1,6 @@
 import { ModelCard, ExtractCarbonFootprintResult, CarbonFootprint } from '../gen/messages_pb';
 import { AxiomContext } from '../gen/axiomContext';
-import { isOversized, MAX_TEXT_BYTES, parseCard, safeJsonStringify, toStringOrEmpty } from './lib';
+import { parseCard, safeJsonStringify, toStringOrEmpty } from './lib';
 
 /**
  * Extract a model card's `co2_eq_emissions` carbon-footprint metadata.
@@ -15,10 +15,6 @@ import { isOversized, MAX_TEXT_BYTES, parseCard, safeJsonStringify, toStringOrEm
 export function extractCarbonFootprint(ax: AxiomContext, input: ModelCard): ExtractCarbonFootprintResult {
   const out = new ExtractCarbonFootprintResult();
   const text = input.getText();
-  if (isOversized(text)) {
-    out.setError(`input exceeds ${MAX_TEXT_BYTES} bytes`);
-    return out;
-  }
   const parsed = parseCard(text);
   if (!parsed.hasFrontmatter || !parsed.valid) return out;
   const raw = parsed.data.co2_eq_emissions;

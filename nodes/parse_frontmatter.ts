@@ -1,6 +1,6 @@
 import { ModelCard, ParseFrontmatterResult, FrontmatterEntry } from '../gen/messages_pb';
 import { AxiomContext } from '../gen/axiomContext';
-import { isOversized, MAX_TEXT_BYTES, parseCard, safeJsonStringify } from './lib';
+import { parseCard, safeJsonStringify } from './lib';
 
 /**
  * Parse a card's YAML frontmatter into a normalized structure: one
@@ -16,10 +16,6 @@ import { isOversized, MAX_TEXT_BYTES, parseCard, safeJsonStringify } from './lib
 export function parseFrontmatter(ax: AxiomContext, input: ModelCard): ParseFrontmatterResult {
   const out = new ParseFrontmatterResult();
   const text = input.getText();
-  if (isOversized(text)) {
-    out.setError(`input exceeds ${MAX_TEXT_BYTES} bytes`);
-    return out;
-  }
   const parsed = parseCard(text);
   out.setHasFrontmatter(parsed.hasFrontmatter);
   out.setValid(parsed.hasFrontmatter && parsed.valid);

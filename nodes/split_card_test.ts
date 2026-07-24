@@ -1,6 +1,6 @@
 import { ModelCard } from '../gen/messages_pb';
 import { splitCard } from './split_card';
-import { ctx, MODEL_CARD, MODEL_CARD_BODY, NO_FRONTMATTER_CARD, MALFORMED_FRONTMATTER_CARD, BOM_CARD, MAX_TEXT_BYTES, MAX_FRONTMATTER_BYTES } from './testkit';
+import { ctx, MODEL_CARD, MODEL_CARD_BODY, NO_FRONTMATTER_CARD, MALFORMED_FRONTMATTER_CARD, BOM_CARD } from './testkit';
 
 describe('SplitCard', () => {
   it('splits frontmatter from body on a well-formed card', () => {
@@ -33,19 +33,20 @@ describe('SplitCard', () => {
     expect(result.getError()).toBe('');
   });
 
-  it('sets the top-level error, not a crash, on oversized whole input', () => {
+  it('handles a large whole input without crashing (size limits are the platform\'s job)', () => {
     const input = new ModelCard();
-    input.setText('a'.repeat(MAX_TEXT_BYTES + 10));
+    input.setText('a'.repeat(1024 * 1024 + 10));
     const result = splitCard(ctx, input);
-    expect(result.getError()).toContain(String(MAX_TEXT_BYTES));
+    expect(result.getError()).toBe('');
   });
 
-  it('treats an oversized frontmatter block as absent rather than parsing it', () => {
-    const hugeFrontmatter = '---\n' + 'x: ' + 'a'.repeat(MAX_FRONTMATTER_BYTES + 10) + '\n---\nbody\n';
+  it('parses a large frontmatter block rather than refusing it', () => {
+    const hugeFrontmatter = '---\n' + 'x: ' + 'a'.repeat(64 * 1024 + 10) + '\n---\nbody\n';
     const input = new ModelCard();
     input.setText(hugeFrontmatter);
     const result = splitCard(ctx, input);
-    expect(result.getHasFrontmatter()).toBe(false);
+    expect(result.getHasFrontmatter()).toBe(true);
+    expect(result.getFrontmatterParseError()).toBe(false);
     expect(result.getError()).toBe('');
   });
 

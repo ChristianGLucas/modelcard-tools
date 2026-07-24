@@ -1,6 +1,6 @@
 import { ModelCard, ExtractWidgetExamplesResult, WidgetExample } from '../gen/messages_pb';
 import { AxiomContext } from '../gen/axiomContext';
-import { isOversized, MAX_TEXT_BYTES, parseCard, safeJsonStringify, toStringOrEmpty } from './lib';
+import { parseCard, safeJsonStringify, toStringOrEmpty } from './lib';
 
 /**
  * Extract a model card's `widget` inference examples. Each entry's plain
@@ -14,10 +14,6 @@ import { isOversized, MAX_TEXT_BYTES, parseCard, safeJsonStringify, toStringOrEm
 export function extractWidgetExamples(ax: AxiomContext, input: ModelCard): ExtractWidgetExamplesResult {
   const out = new ExtractWidgetExamplesResult();
   const text = input.getText();
-  if (isOversized(text)) {
-    out.setError(`input exceeds ${MAX_TEXT_BYTES} bytes`);
-    return out;
-  }
   const parsed = parseCard(text);
   if (!parsed.hasFrontmatter || !parsed.valid) return out;
   const raw = parsed.data.widget;

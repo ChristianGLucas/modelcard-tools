@@ -1,6 +1,6 @@
 import { ModelCard, ListEvaluationMetricsResult, EvaluationMetricRow } from '../gen/messages_pb';
 import { AxiomContext } from '../gen/axiomContext';
-import { flattenModelIndex, isOversized, MAX_TEXT_BYTES, normalizeModelIndex, parseCard } from './lib';
+import { flattenModelIndex, normalizeModelIndex, parseCard } from './lib';
 
 /**
  * List every evaluation metric reported in a model card's `model-index` as
@@ -15,10 +15,6 @@ import { flattenModelIndex, isOversized, MAX_TEXT_BYTES, normalizeModelIndex, pa
 export function listEvaluationMetrics(ax: AxiomContext, input: ModelCard): ListEvaluationMetricsResult {
   const out = new ListEvaluationMetricsResult();
   const text = input.getText();
-  if (isOversized(text)) {
-    out.setError(`input exceeds ${MAX_TEXT_BYTES} bytes`);
-    return out;
-  }
   const parsed = parseCard(text);
   if (!parsed.hasFrontmatter || !parsed.valid) return out;
   const raw = (parsed.data as Record<string, unknown>)['model-index'];

@@ -1,6 +1,6 @@
 import { ModelCard, ModelIndexResult, ModelIndexEntry, EvalDatasetResult, EvalMetric } from '../gen/messages_pb';
 import { AxiomContext } from '../gen/axiomContext';
-import { isOversized, MAX_TEXT_BYTES, normalizeModelIndex, parseCard } from './lib';
+import { normalizeModelIndex, parseCard } from './lib';
 
 /**
  * Extract a model card's `model-index` structured evaluation results — the
@@ -16,10 +16,6 @@ import { isOversized, MAX_TEXT_BYTES, normalizeModelIndex, parseCard } from './l
 export function extractModelIndex(ax: AxiomContext, input: ModelCard): ModelIndexResult {
   const out = new ModelIndexResult();
   const text = input.getText();
-  if (isOversized(text)) {
-    out.setError(`input exceeds ${MAX_TEXT_BYTES} bytes`);
-    return out;
-  }
   const parsed = parseCard(text);
   if (!parsed.hasFrontmatter || !parsed.valid) return out;
   const raw = (parsed.data as Record<string, unknown>)['model-index'];

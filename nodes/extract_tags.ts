@@ -1,6 +1,6 @@
 import { ModelCard, ExtractTagsResult } from '../gen/messages_pb';
 import { AxiomContext } from '../gen/axiomContext';
-import { isOversized, MAX_TEXT_BYTES, parseCard, toStringArray } from './lib';
+import { parseCard, toStringArray } from './lib';
 
 /**
  * Extract a card's `tags` list from its frontmatter. Empty (not an error)
@@ -12,10 +12,6 @@ import { isOversized, MAX_TEXT_BYTES, parseCard, toStringArray } from './lib';
 export function extractTags(ax: AxiomContext, input: ModelCard): ExtractTagsResult {
   const out = new ExtractTagsResult();
   const text = input.getText();
-  if (isOversized(text)) {
-    out.setError(`input exceeds ${MAX_TEXT_BYTES} bytes`);
-    return out;
-  }
   const parsed = parseCard(text);
   if (!parsed.hasFrontmatter || !parsed.valid) return out;
   out.setTagsList(toStringArray(parsed.data.tags));

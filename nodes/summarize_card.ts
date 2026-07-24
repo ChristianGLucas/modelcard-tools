@@ -1,6 +1,6 @@
 import { ModelCard, SummarizeCardResult } from '../gen/messages_pb';
 import { AxiomContext } from '../gen/axiomContext';
-import { detectCardType, flattenModelIndex, isOversized, isPresent, MAX_TEXT_BYTES, normalizeModelIndex, parseCard, splitSections, toStringArray, wordCount } from './lib';
+import { detectCardType, flattenModelIndex, isPresent, normalizeModelIndex, parseCard, splitSections, toStringArray, wordCount } from './lib';
 
 /**
  * Summarize a card's metadata at a glance: card type, frontmatter key
@@ -13,10 +13,6 @@ import { detectCardType, flattenModelIndex, isOversized, isPresent, MAX_TEXT_BYT
 export function summarizeCard(ax: AxiomContext, input: ModelCard): SummarizeCardResult {
   const out = new SummarizeCardResult();
   const text = input.getText();
-  if (isOversized(text)) {
-    out.setError(`input exceeds ${MAX_TEXT_BYTES} bytes`);
-    return out;
-  }
   const parsed = parseCard(text);
   out.setHasFrontmatter(parsed.hasFrontmatter);
   out.setFrontmatterValid(parsed.hasFrontmatter && parsed.valid);
