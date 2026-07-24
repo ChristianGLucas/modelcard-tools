@@ -22,7 +22,7 @@ package christiangeorgelucas.modelcard_tools;
 // A model card or dataset card as caller-supplied text — the Hugging
 // Face-style README.md: optional `---`-fenced YAML frontmatter followed by a
 // Markdown body. Text only; never a URL or Hub repo id (this package never
-// touches the network). Bounded to 1 MiB total.
+// touches the network).
 message ModelCard {
   string text = 1;
 }
@@ -46,8 +46,8 @@ message SplitCardResult {
   // True when a frontmatter block was found but failed to parse as YAML.
   bool frontmatter_parse_error = 4;
   string parse_error_message = 5;
-  // Set only for a hard, whole-input failure (oversized input). Never set
-  // for a missing or malformed frontmatter block, which is reported above.
+  // Set only for a hard, whole-input failure. Never set for a missing or
+  // malformed frontmatter block, which is reported above.
   string error = 6;
 }
 
